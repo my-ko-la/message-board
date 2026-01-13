@@ -53,13 +53,33 @@ export const useMessageSubscription = ({
   const deletedBufferRef = useRef<Message[]>([]);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Subscribe to new messages
   useSubscription(MESSAGE_CREATED_SUBSCRIPTION, {
     variables: { conversationId },
+    onError: (error) => {
+      console.error("❌ MESSAGE_CREATED subscription error:", error);
+    },
+    onComplete: () => {
+      console.log("✅ MESSAGE_CREATED subscription completed");
+    },
     onData: ({ data }) => {
-      console.log(data.data, messageBufferRef.current);
+      console.log("🔔 MESSAGE_CREATED subscription data received:");
+      console.log("  Full data object:", JSON.stringify(data, null, 2));
+      console.log("  data.data:", data.data);
+      console.log("  messageCreated:", data.data?.messageCreated);
+      console.log("  Current buffer:", messageBufferRef.current);
+
       const message = data.data?.messageCreated;
-      if (!message) return;
+      if (!message) {
+        console.warn("⚠️ No message in subscription payload!");
+        return;
+      }
+
+      console.log("✅ Valid message received:", {
+        id: message.id,
+        content: message.content?.substring(0, 50),
+        author: message.author?.username,
+        parentMessage: message.parentMessage?.id,
+      });
 
       // Don't show notifications for user's own messages
       if (currentUserId && message.author.id === currentUserId) {
@@ -84,7 +104,11 @@ export const useMessageSubscription = ({
   // Subscribe to deleted messages
   useSubscription(MESSAGE_DELETED_SUBSCRIPTION, {
     variables: { conversationId },
+    onError: (error) => {
+      console.error("❌ MESSAGE_DELETED subscription error:", error);
+    },
     onData: ({ data }) => {
+      console.log("🔔 MESSAGE_DELETED subscription data:", data.data);
       const message = data.data?.messageDeleted;
       if (!message) return;
 

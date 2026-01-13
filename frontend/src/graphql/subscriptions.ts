@@ -1,7 +1,7 @@
 import { gql } from '@apollo/client';
 
 export const MESSAGE_CREATED_SUBSCRIPTION = gql`
-  subscription MessageCreated($conversationId: ID) {
+  subscription messageCreated($conversationId: ID) {
     messageCreated(conversationId: $conversationId) {
       id
       content
@@ -22,7 +22,7 @@ export const MESSAGE_CREATED_SUBSCRIPTION = gql`
 `;
 
 export const MESSAGE_DELETED_SUBSCRIPTION = gql`
-  subscription MessageDeleted($conversationId: ID) {
+  subscription messageDeleted($conversationId: ID) {
     messageDeleted(conversationId: $conversationId) {
       id
       content

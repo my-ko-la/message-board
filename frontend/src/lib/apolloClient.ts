@@ -10,6 +10,13 @@ const httpLink = new HttpLink({
 const wsLink = new GraphQLWsLink(
   createClient({
     url: 'ws://localhost:3000/api/graphql',
+    on: {
+      connected: () => console.log('🔌 WS Connected'),
+      closed: (event) => console.log('🔌 WS Closed:', event),
+      error: (error) => console.error('❌ WS Error:', error),
+    },
+    retryAttempts: 5,
+    shouldRetry: () => true,
   })
 );
 

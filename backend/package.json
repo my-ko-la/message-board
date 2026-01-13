@@ -18,7 +18,7 @@
     "@keystone-6/fields-document": "^8.0.2",
     "@types/ws": "^8.18.1",
     "graphql": "^16.8.1",
-    "graphql-subscriptions": "^3.0.0",
+    "graphql-subscriptions": "^2.0.0",
     "graphql-ws": "^6.0.6",
     "ws": "^8.19.0"
   },

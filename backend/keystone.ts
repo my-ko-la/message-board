@@ -1,6 +1,5 @@
 import { config } from '@keystone-6/core';
 import { lists } from './schema';
-import { extendGraphqlSchema } from './graphql';
 import { extendHttpServer } from './websocket';
 
 export default config({
@@ -10,7 +9,6 @@ export default config({
   },
   lists,
   graphql: {
-    extendGraphqlSchema,
     playground: true,
     apolloConfig: {
       introspection: true,

@@ -46,7 +46,7 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
     showToast,
   } = useMessageSubscription({
     conversationId,
-    currentUserId: session?.userId,
+    currentUserId: session?.userId || undefined,
   });
 
   const { data, loading, error } = useQuery(GET_CONVERSATION_WITH_REPLIES, {
@@ -107,7 +107,6 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
     }
   }, [newMessages, conversationData, conversationId, clearNewMessages, lockScroll, unlockScroll]);
 
-  // Handle deleted messages from subscription - update them in state
   useEffect(() => {
     if (deletedMessages.length > 0 && conversationData) {
       setConversationData((prev: any) => {
@@ -150,13 +149,11 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
   const [createReply] = useMutation(CREATE_REPLY, {
     onCompleted: () => {
       setReplyingTo(null);
-      // Subscription will handle adding the new message
     },
   });
 
   const [deleteMessage] = useMutation(DELETE_MESSAGE_WITH_REASON, {
     onCompleted: () => {
-      // Subscription will handle updating the deleted message
     },
   });
 

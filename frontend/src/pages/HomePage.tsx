@@ -39,8 +39,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
   // Subscribe to all messages globally (no conversation filter)
   const { newMessages, clearNewMessages } = useMessageSubscription({
     conversationId: null, // Listen to all messages
-    currentUserId: session?.userId,
-    batchThreshold: 999, // Don't show toast on home page
+    currentUserId: session?.userId || undefined,
+    batchThreshold: 999, 
   });
 
   // Refetch when new messages arrive
