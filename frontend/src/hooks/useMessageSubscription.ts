@@ -79,15 +79,14 @@ export const useMessageSubscription = ({
         content: message.content?.substring(0, 50),
         author: message.author?.username,
         parentMessage: message.parentMessage?.id,
+        isOwnMessage: currentUserId === message.author.id,
       });
 
-      // Don't show notifications for user's own messages
-      if (currentUserId && message.author.id === currentUserId) {
-        return;
-      }
-
-      // Add to buffer
+      // Add to buffer (including own messages so sender sees them)
       messageBufferRef.current.push(message);
+
+      // Check if this is the user's own message
+      const isOwnMessage = currentUserId && message.author.id === currentUserId;
 
       // Clear existing timeout
       if (timeoutRef.current) {
@@ -95,9 +94,10 @@ export const useMessageSubscription = ({
       }
 
       // Set new timeout to flush buffer
+      // For own messages, flush immediately so sender sees it right away
       timeoutRef.current = setTimeout(() => {
-        flushBuffer();
-      }, batchInterval);
+        flushBuffer(isOwnMessage);
+      }, isOwnMessage ? 0 : batchInterval);
     },
   });
 
@@ -125,15 +125,15 @@ export const useMessageSubscription = ({
     },
   });
 
-  const flushBuffer = useCallback(() => {
+  const flushBuffer = useCallback((skipToast = false) => {
     const bufferedMessages = messageBufferRef.current;
     if (bufferedMessages.length === 0) return;
 
     const count = bufferedMessages.length;
     setMessageCount(count);
 
-    // Show toast if above threshold
-    if (count > batchThreshold) {
+    // Show toast if above threshold (but not for own messages)
+    if (!skipToast && count > batchThreshold) {
       setShowToast(true);
       // Auto-hide toast after 3 seconds
       setTimeout(() => setShowToast(false), 3000);

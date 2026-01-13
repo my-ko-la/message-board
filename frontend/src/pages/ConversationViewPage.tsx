@@ -71,30 +71,43 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
 
         // Add new messages to the appropriate place in the tree
         newMessages.forEach((newMsg) => {
+          // Initialize replies array on incoming message to prevent crashes
+          const normalizedMsg = { ...newMsg, replies: newMsg.replies || [] };
+
           // Check if message already exists (avoid duplicates)
-          const existsInReplies = updated.replies?.some((r: any) => r.id === newMsg.id);
+          const existsInReplies = updated.replies?.some((r: any) => r.id === normalizedMsg.id);
           if (existsInReplies) return;
 
           // If it's a direct reply to the conversation
-          if (newMsg.parentMessage?.id === conversationId) {
-            updated.replies = [...(updated.replies || []), newMsg];
+          if (normalizedMsg.parentMessage?.id === conversationId) {
+            updated.replies = [...(updated.replies || []), normalizedMsg];
           } else {
-            // It's a nested reply - find parent and add to it
-            const addToParent = (messages: any[]): boolean => {
-              for (const msg of messages) {
-                if (msg.id === newMsg.parentMessage?.id) {
-                  msg.replies = [...(msg.replies || []), newMsg];
-                  return true;
+            // It's a nested reply - find parent and add to it (immutably)
+            const addToParent = (messages: any[]): any[] | null => {
+              return messages.map(msg => {
+                if (msg.id === normalizedMsg.parentMessage?.id) {
+                  // Found parent - add reply
+                  return {
+                    ...msg,
+                    replies: [...(msg.replies || []), normalizedMsg]
+                  };
                 }
-                if (msg.replies && addToParent(msg.replies)) {
-                  return true;
+                if (msg.replies && msg.replies.length > 0) {
+                  // Recursively search in nested replies
+                  const updatedReplies = addToParent(msg.replies);
+                  if (updatedReplies) {
+                    return { ...msg, replies: updatedReplies };
+                  }
                 }
-              }
-              return false;
+                return msg;
+              });
             };
 
             if (updated.replies) {
-              addToParent(updated.replies);
+              const updatedReplies = addToParent(updated.replies);
+              if (updatedReplies) {
+                updated.replies = updatedReplies;
+              }
             }
           }
         });
