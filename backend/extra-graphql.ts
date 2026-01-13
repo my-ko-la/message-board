@@ -2,21 +2,34 @@ import type { GraphQLSchema } from "graphql";
 import { mergeSchemas } from "@graphql-tools/schema";
 import { pubSub } from "./websocket";
 
-export const extendGraphqlSchema = (schema: GraphQLSchema) =>
-  mergeSchemas({
+export const extendGraphqlSchema = (schema: GraphQLSchema) => {
+  return mergeSchemas({
     schemas: [schema],
     typeDefs: `
       type Mutation {
         deleteMessageWithReason(id: ID!, reason: String, userId: ID!): Message
       }
 
+      type SubscriptionMessage {
+        id: ID!
+        content: String!
+        isDeleted: Boolean
+        deletedReason: String
+        author: User!
+        parentMessage: Message
+        createdAt: String!
+        updatedAt: String!
+      }
+
       type Subscription {
-        messageCreated(conversationId: ID): Message
-        messageDeleted(conversationId: ID): Message
+        messageCreated(conversationId: ID): SubscriptionMessage
+        messageDeleted(conversationId: ID): SubscriptionMessage
       }
     `,
 
     resolvers: {
+
+
       Mutation: {
         deleteMessageWithReason: async (
           root,
@@ -65,8 +78,20 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) =>
               "id content isDeleted deletedReason author { id username role } parentMessage { id } createdAt updatedAt",
           });
 
+          // Convert DateTime to strings for subscription
+          const messageForSubscription = {
+            id: updatedMessage.id,
+            content: updatedMessage.content,
+            isDeleted: updatedMessage.isDeleted,
+            deletedReason: updatedMessage.deletedReason,
+            author: updatedMessage.author,
+            parentMessage: updatedMessage.parentMessage,
+            createdAt: new Date(updatedMessage.createdAt).toISOString(),
+            updatedAt: new Date(updatedMessage.updatedAt).toISOString(),
+          };
+
           pubSub.publish("MESSAGE_DELETED", {
-            messageDeleted: updatedMessage,
+            messageDeleted: messageForSubscription,
           });
 
           return updatedMessage;
@@ -85,22 +110,29 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) =>
               messageParentId: message?.parentMessage?.id || 'none (top-level)',
             });
 
+            // Ensure dates are strings
+            const messageWithStringDates = {
+              ...message,
+              createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date(message.createdAt).toISOString(),
+              updatedAt: typeof message.updatedAt === 'string' ? message.updatedAt : new Date(message.updatedAt).toISOString(),
+            };
+
             // If no filter, return all messages
             if (!conversationId) {
               console.log('  ➡️ No filter - returning message');
-              return message;
+              return messageWithStringDates;
             }
 
             // If message IS the conversation starter
             if (message.id === conversationId) {
               console.log('  ➡️ Message is the conversation - returning message');
-              return message;
+              return messageWithStringDates;
             }
 
             // If message is a direct reply to the conversation
             if (message.parentMessage?.id === conversationId) {
               console.log('  ➡️ Direct reply - returning message');
-              return message;
+              return messageWithStringDates;
             }
 
             // For nested replies, traverse up the parent chain
@@ -124,7 +156,12 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) =>
 
               if (parent.id === conversationId) {
                 console.log('  ✅ Found conversation in parent chain - returning message');
-                return message;
+                // Ensure dates are strings before returning
+                return {
+                  ...message,
+                  createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date(message.createdAt).toISOString(),
+                  updatedAt: typeof message.updatedAt === 'string' ? message.updatedAt : new Date(message.updatedAt).toISOString(),
+                };
               }
 
               currentParentId = parent.parentMessage?.id;
@@ -150,17 +187,24 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) =>
               filterConversationId: conversationId || 'none (all messages)',
             });
 
+            // Ensure dates are strings
+            const messageWithStringDates = {
+              ...message,
+              createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date(message.createdAt).toISOString(),
+              updatedAt: typeof message.updatedAt === 'string' ? message.updatedAt : new Date(message.updatedAt).toISOString(),
+            };
+
             // Same filtering logic as messageCreated
             if (!conversationId) {
-              return message;
+              return messageWithStringDates;
             }
 
             if (message.id === conversationId) {
-              return message;
+              return messageWithStringDates;
             }
 
             if (message.parentMessage?.id === conversationId) {
-              return message;
+              return messageWithStringDates;
             }
 
             // Traverse parent chain
@@ -175,7 +219,7 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) =>
               });
 
               if (!parent) break;
-              if (parent.id === conversationId) return message;
+              if (parent.id === conversationId) return messageWithStringDates;
 
               currentParentId = parent.parentMessage?.id;
               depth++;
@@ -191,3 +235,4 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) =>
       },
     },
   });
+};
