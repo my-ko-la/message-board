@@ -1,25 +1,20 @@
 import { useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { Box, CircularProgress, Alert, Button, Typography, Container } from '@mui/material';
 import { Layout } from './components/Layout/Layout';
 import { HomePage } from './pages/HomePage';
 import { AllConversationsPage } from './pages/AllConversationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ConversationViewPage } from './pages/ConversationViewPage';
-import { Page } from './components/Layout/LeftSidebar';
 import { useSession } from './contexts/SessionContext';
 
-type ViewState =
-  | { type: 'page'; page: Page }
-  | { type: 'conversation'; id: string };
-
 function App() {
-  const { session, loading, error, retry } = useSession();
-  const [viewState, setViewState] = useState<ViewState>({ type: 'page', page: 'home' });
+  const { session, loading: sessionLoading, error: sessionError, retry } = useSession();
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [sidebarMessageId, setSidebarMessageId] = useState<string | null>(null);
 
   // Loading state
-  if (loading) {
+  if (sessionLoading) {
     return (
       <Box
         sx={{
@@ -40,7 +35,7 @@ function App() {
   }
 
   // Error state
-  if (error || !session) {
+  if (sessionError || !session) {
     return (
       <Container maxWidth="sm">
         <Box
@@ -58,7 +53,7 @@ function App() {
               Failed to Initialize Session
             </Typography>
             <Typography variant="body2">
-              {error || 'Could not connect to the backend server.'}
+              {sessionError || 'Could not connect to the backend server.'}
             </Typography>
           </Alert>
           <Button variant="contained" onClick={retry} size="large">
@@ -74,64 +69,33 @@ function App() {
     );
   }
 
-  const handleNavigate = (page: Page) => {
-    setViewState({ type: 'page', page });
-  };
-
-  const handleOpenConversation = (id: string) => {
-    setViewState({ type: 'conversation', id });
-  };
-
-  const handleOpenInSidebar = (messageId: string) => {
+  const doOpenMessageInSidebar = (messageId: string) => {
     setSidebarMessageId(messageId);
     setRightSidebarOpen(true);
   };
 
-  const handleBackToHome = () => {
-    setViewState({ type: 'page', page: 'home' });
-  };
-
-  const renderContent = () => {
-    if (viewState.type === 'conversation') {
-      return (
-        <ConversationViewPage
-          conversationId={viewState.id}
-          onOpenInSidebar={handleOpenInSidebar}
-          onBack={handleBackToHome}
-        />
-      );
-    }
-
-    switch (viewState.page) {
-      case 'home':
-        return <HomePage onOpenConversation={handleOpenConversation} />;
-      case 'conversations':
-        return <AllConversationsPage onOpenConversation={handleOpenConversation} />;
-      case 'settings':
-        return <SettingsPage />;
-      default:
-        return <HomePage onOpenConversation={handleOpenConversation} />;
-    }
-  };
-
-  const currentPage = viewState.type === 'page' ? viewState.page : 'conversations';
-
   return (
     <Layout
-      currentPage={currentPage}
-      onNavigate={handleNavigate}
       rightSidebarOpen={rightSidebarOpen}
       onRightSidebarClose={() => setRightSidebarOpen(false)}
       rightSidebarContent={
         sidebarMessageId ? (
           <ConversationViewPage
             conversationId={sidebarMessageId}
-            onOpenInSidebar={handleOpenInSidebar}
+            onOpenInSidebar={doOpenMessageInSidebar}
           />
         ) : null
       }
     >
-      {renderContent()}
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/conversations" element={<AllConversationsPage />} />
+        <Route
+          path="/conversation/:id"
+          element={<ConversationViewPage onOpenInSidebar={doOpenMessageInSidebar} />}
+        />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Routes>
     </Layout>
   );
 }

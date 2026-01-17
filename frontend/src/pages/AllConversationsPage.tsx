@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
@@ -24,20 +25,32 @@ import { useSession } from '../contexts/SessionContext';
 import { GET_CONVERSATIONS } from '../graphql/queries';
 import { CREATE_CONVERSATION } from '../graphql/mutations';
 import { MessageComposer } from '../components/Message/MessageComposer';
+import { useKeyPressed, KeyBindings } from '../hooks/useKeyPressed';
 
 type FilterTab = 'all' | 'yours' | 'others';
 type SortOption = 'recent' | 'mostReplies' | 'created';
 
-interface AllConversationsPageProps {
-  onOpenConversation?: (conversationId: string) => void;
-}
-
-export const AllConversationsPage: React.FC<AllConversationsPageProps> = ({ onOpenConversation }) => {
+export const AllConversationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { session } = useSession();
   const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [searchQuery, setSearchQuery] = useState('');
   const [showComposer, setShowComposer] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcuts
+  useKeyPressed({
+    bindings: [
+      KeyBindings.newConversation(() => setShowComposer(!showComposer)),
+      KeyBindings.search(() => searchInputRef.current?.focus()),
+      KeyBindings.escape(() => {
+        if (showComposer) {
+          setShowComposer(false);
+        }
+      }),
+    ],
+  });
 
   const whereClause = useMemo(() => {
     const base: any = { parentMessage: null }; // Only top-level conversations
@@ -73,9 +86,13 @@ export const AllConversationsPage: React.FC<AllConversationsPageProps> = ({ onOp
   });
 
   const [createConversation] = useMutation(CREATE_CONVERSATION, {
-    onCompleted: () => {
+    onCompleted: (data) => {
       setShowComposer(false);
       refetch();
+      // Navigate to the new conversation
+      if (data?.createMessage?.id) {
+        navigate(`/conversation/${data.createMessage.id}`);
+      }
     },
   });
 
@@ -88,6 +105,10 @@ export const AllConversationsPage: React.FC<AllConversationsPageProps> = ({ onOp
         authorId: session.userId,
       },
     });
+  };
+
+  const handleOpenConversation = (conversationId: string) => {
+    navigate(`/conversation/${conversationId}`);
   };
 
   const conversations = data?.messages || [];
@@ -135,12 +156,13 @@ export const AllConversationsPage: React.FC<AllConversationsPageProps> = ({ onOp
       {/* Search and Sort */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <TextField
+          inputRef={searchInputRef}
           label="Search conversations"
           variant="outlined"
           fullWidth
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by content..."
+          placeholder="Search by content... (press / to focus)"
         />
         <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>Sort By</InputLabel>
@@ -175,7 +197,7 @@ export const AllConversationsPage: React.FC<AllConversationsPageProps> = ({ onOp
             <ListItem
               key={conv.id}
               button
-              onClick={() => onOpenConversation?.(conv.id)}
+              onClick={() => handleOpenConversation(conv.id)}
               sx={{
                 border: 1,
                 borderColor: 'divider',

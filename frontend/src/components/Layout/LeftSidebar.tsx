@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Drawer,
   List,
@@ -20,26 +21,40 @@ const DRAWER_WIDTH = 240;
 export type Page = 'home' | 'conversations' | 'settings';
 
 interface LeftSidebarProps {
-  currentPage: Page;
-  onNavigate: (page: Page) => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }
 
-const menuItems: Array<{ id: Page; label: string; icon: React.ReactNode }> = [
-  { id: 'home', label: 'Home', icon: <HomeIcon /> },
-  { id: 'conversations', label: 'All Conversations', icon: <ForumIcon /> },
-  { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
+const menuItems: Array<{ id: Page; label: string; icon: React.ReactNode; path: string }> = [
+  { id: 'home', label: 'Home', icon: <HomeIcon />, path: '/' },
+  { id: 'conversations', label: 'All Conversations', icon: <ForumIcon />, path: '/conversations' },
+  { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
-  currentPage,
-  onNavigate,
   mobileOpen,
   onMobileClose,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getCurrentPage = (): Page => {
+    if (location.pathname === '/') return 'home';
+    if (location.pathname.startsWith('/conversations') || location.pathname.startsWith('/conversation/')) return 'conversations';
+    if (location.pathname === '/settings') return 'settings';
+    return 'home';
+  };
+
+  const currentPage = getCurrentPage();
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    if (isMobile) {
+      onMobileClose();
+    }
+  };
 
   const drawerContent = (
     <Box>
@@ -49,12 +64,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           <ListItem key={item.id} disablePadding>
             <ListItemButton
               selected={currentPage === item.id}
-              onClick={() => {
-                onNavigate(item.id);
-                if (isMobile) {
-                  onMobileClose();
-                }
-              }}
+              onClick={() => handleNavigate(item.path)}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.label} />

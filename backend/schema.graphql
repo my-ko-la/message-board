@@ -149,6 +149,7 @@ type Message {
   id: ID!
   content: String
   author: User
+  conversation: Message
   parentMessage: Message
   replies(where: MessageWhereInput! = {}, orderBy: [MessageOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: MessageWhereUniqueInput): [Message!]
   repliesCount(where: MessageWhereInput! = {}): Int
@@ -169,6 +170,7 @@ input MessageWhereInput {
   id: IDFilter
   content: StringFilter
   author: UserWhereInput
+  conversation: MessageWhereInput
   parentMessage: MessageWhereInput
   replies: MessageManyRelationFilter
   isDeleted: BooleanFilter
@@ -194,6 +196,7 @@ input MessageOrderByInput {
 input MessageUpdateInput {
   content: String
   author: UserRelateToOneForUpdateInput
+  conversation: MessageRelateToOneForUpdateInput
   parentMessage: MessageRelateToOneForUpdateInput
   replies: MessageRelateToManyForUpdateInput
   isDeleted: Boolean
@@ -222,6 +225,7 @@ input MessageUpdateArgs {
 input MessageCreateInput {
   content: String
   author: UserRelateToOneForCreateInput
+  conversation: MessageRelateToOneForCreateInput
   parentMessage: MessageRelateToOneForCreateInput
   replies: MessageRelateToManyForCreateInput
   isDeleted: Boolean

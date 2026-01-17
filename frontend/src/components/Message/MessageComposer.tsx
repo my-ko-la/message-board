@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   TextField,
@@ -11,6 +11,7 @@ import SendIcon from '@mui/icons-material/Send';
 
 interface MessageComposerProps {
   onSubmit: (content: string) => Promise<void>;
+  onCancel?: () => void;
   placeholder?: string;
   label?: string;
   parentContext?: {
@@ -22,6 +23,7 @@ interface MessageComposerProps {
 
 export const MessageComposer: React.FC<MessageComposerProps> = ({
   onSubmit,
+  onCancel,
   placeholder = 'Write your message...',
   label = 'New Message',
   parentContext,
@@ -29,6 +31,12 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 }) => {
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+
+  // FIXME: useKeyPressed doesn't flush the buffer, this is a hack
+  useEffect(() => {
+    if (content === "N") setContent('');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +48,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       await onSubmit(content);
       setContent('');
     } catch (error) {
+      // TODO: inform the user 
       console.error('Failed to send message:', error);
     } finally {
       setSubmitting(false);
@@ -80,7 +89,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           disabled={submitting}
           autoFocus={autoFocus}
         />
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          {onCancel && (
+            <Button
+              variant="outlined"
+              onClick={onCancel}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+          )}
           <Button
             type="submit"
             variant="contained"

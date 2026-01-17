@@ -21,9 +21,13 @@ export const GET_CONVERSATIONS = gql`
   }
 `;
 
-export const GET_CONVERSATION_WITH_REPLIES = gql`
-  query GetConversationWithReplies($id: ID!) {
-    message(where: { id: $id }) {
+// Get all messages in a conversation (flat list)
+export const GET_CONVERSATION_MESSAGES = gql`
+  query GetConversationMessages($conversationId: ID!) {
+    messages(
+      where: { conversation: { id: { equals: $conversationId } } }
+      orderBy: [{ createdAt: asc }]
+    ) {
       id
       content
       isDeleted
@@ -37,36 +41,29 @@ export const GET_CONVERSATION_WITH_REPLIES = gql`
       }
       parentMessage {
         id
-        content
         author {
           id
           username
         }
       }
-      replies {
+    }
+  }
+`;
+
+// Get single message (for root message details)
+export const GET_MESSAGE = gql`
+  query GetMessage($id: ID!) {
+    message(where: { id: $id }) {
+      id
+      content
+      isDeleted
+      deletedReason
+      createdAt
+      updatedAt
+      author {
         id
-        content
-        isDeleted
-        deletedReason
-        createdAt
-        updatedAt
-        author {
-          id
-          username
-          role
-        }
-        replies {
-          id
-          content
-          isDeleted
-          deletedReason
-          createdAt
-          author {
-            id
-            username
-            role
-          }
-        }
+        username
+        role
       }
     }
   }

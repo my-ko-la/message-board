@@ -21,18 +21,22 @@ model User {
 }
 
 model Message {
-  id              String    @id @default(cuid())
-  content         String    @default("")
-  author          User?     @relation("Message_author", fields: [authorId], references: [id])
-  authorId        String?   @map("author")
-  parentMessage   Message?  @relation("Message_parentMessage", fields: [parentMessageId], references: [id])
-  parentMessageId String?   @map("parentMessage")
-  replies         Message[] @relation("Message_parentMessage")
-  isDeleted       Boolean   @default(false)
-  deletedReason   String    @default("")
-  createdAt       DateTime? @default(now())
-  updatedAt       DateTime? @updatedAt
+  id                        String    @id @default(cuid())
+  content                   String    @default("")
+  author                    User?     @relation("Message_author", fields: [authorId], references: [id])
+  authorId                  String?   @map("author")
+  conversation              Message?  @relation("Message_conversation", fields: [conversationId], references: [id])
+  conversationId            String?   @map("conversation")
+  parentMessage             Message?  @relation("Message_parentMessage", fields: [parentMessageId], references: [id])
+  parentMessageId           String?   @map("parentMessage")
+  replies                   Message[] @relation("Message_parentMessage")
+  isDeleted                 Boolean   @default(false)
+  deletedReason             String    @default("")
+  createdAt                 DateTime? @default(now())
+  updatedAt                 DateTime? @updatedAt
+  from_Message_conversation Message[] @relation("Message_conversation")
 
   @@index([authorId])
+  @@index([conversationId])
   @@index([parentMessageId])
 }

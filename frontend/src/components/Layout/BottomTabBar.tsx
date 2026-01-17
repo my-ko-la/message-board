@@ -1,23 +1,22 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import ForumIcon from '@mui/icons-material/Forum';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { Page } from './LeftSidebar';
 
-interface BottomTabBarProps {
-  currentPage: Page;
-  onNavigate: (page: Page) => void;
-}
+const paths = ['/', '/conversations', '/settings'];
 
-export const BottomTabBar: React.FC<BottomTabBarProps> = ({ currentPage, onNavigate }) => {
-  const pageToIndex: Record<Page, number> = {
-    home: 0,
-    conversations: 1,
-    settings: 2,
+export const BottomTabBar: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getCurrentIndex = (): number => {
+    if (location.pathname === '/') return 0;
+    if (location.pathname.startsWith('/conversations') || location.pathname.startsWith('/conversation/')) return 1;
+    if (location.pathname === '/settings') return 2;
+    return 0;
   };
-
-  const indexToPage: Page[] = ['home', 'conversations', 'settings'];
 
   return (
     <Paper
@@ -31,9 +30,9 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ currentPage, onNavig
       elevation={3}
     >
       <BottomNavigation
-        value={pageToIndex[currentPage]}
+        value={getCurrentIndex()}
         onChange={(_, newValue) => {
-          onNavigate(indexToPage[newValue]);
+          navigate(paths[newValue]);
         }}
         showLabels
       >

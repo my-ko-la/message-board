@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
@@ -6,75 +7,86 @@ import {
   CircularProgress,
   Alert,
   Divider,
-  Breadcrumbs,
-  Link,
   IconButton,
+  Chip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ReplyIcon from '@mui/icons-material/Reply';
 import { MessageCard } from '../components/Message/MessageCard';
 import { MessageComposer } from '../components/Message/MessageComposer';
-import { GET_CONVERSATION_WITH_REPLIES } from '../graphql/queries';
+import { GET_CONVERSATION_MESSAGES } from '../graphql/queries';
 import { CREATE_REPLY, DELETE_MESSAGE_WITH_REASON } from '../graphql/mutations';
 import { useSession } from '../contexts/SessionContext';
+import { useKeyPressed, KeyBindings } from '../hooks/useKeyPressed';
 
 interface ConversationViewPageProps {
-  conversationId: string;
+  conversationId?: string;
   onOpenInSidebar?: (messageId: string) => void;
-  onBack?: () => void;
 }
 
-// Progressive polling intervals (ms): starts fast, slows down if no changes
+interface Message {
+  id: string;
+  content: string;
+  isDeleted: boolean;
+  deletedReason?: string;
+  createdAt: string;
+  updatedAt?: string;
+  author: {
+    id: string;
+    username: string;
+    role: string;
+  };
+  parentMessage?: {
+    id: string;
+    author?: {
+      id: string;
+      username: string;
+    };
+  } | null;
+}
+
 const POLL_INTERVALS = [2000, 5000, 15000];
-const IDLE_TIMEOUT = 30000; // Time without changes before slowing down
+const IDLE_TIMEOUT = 30000;
 
 export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
-  conversationId,
+  conversationId: propConversationId,
   onOpenInSidebar,
-  onBack,
 }) => {
+  const { id: urlConversationId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { session } = useSession();
+
+  const conversationId = propConversationId || urlConversationId;
+
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [pollIntervalIndex, setPollIntervalIndex] = useState(0);
-  const lastDataHashRef = useRef<string>('');
+  const lastCountRef = useRef<number>(0);
   const lastChangeTimeRef = useRef<number>(Date.now());
 
-  const { data, loading, error, refetch } = useQuery(GET_CONVERSATION_WITH_REPLIES, {
-    variables: { id: conversationId },
+  const { data, loading, error, refetch } = useQuery(GET_CONVERSATION_MESSAGES, {
+    variables: { conversationId },
+    skip: !conversationId,
     pollInterval: POLL_INTERVALS[pollIntervalIndex],
   });
 
-  // Compute a simple hash of the data to detect changes
-  const computeDataHash = useCallback((data: any): string => {
-    if (!data?.message) return '';
-    const countReplies = (msg: any): number => {
-      if (!msg.replies) return 0;
-      return msg.replies.length + msg.replies.reduce((sum: number, r: any) => sum + countReplies(r), 0);
-    };
-    return `${data.message.id}-${data.message.updatedAt}-${countReplies(data.message)}`;
-  }, []);
-
-  // Adjust polling interval based on activity
+  // Adjust polling based on message count changes
   useEffect(() => {
-    const currentHash = computeDataHash(data);
-
-    if (currentHash && currentHash !== lastDataHashRef.current) {
-      // Data changed - reset to fast polling
-      lastDataHashRef.current = currentHash;
+    const count = data?.messages?.length || 0;
+    if (count !== lastCountRef.current) {
+      lastCountRef.current = count;
       lastChangeTimeRef.current = Date.now();
       setPollIntervalIndex(0);
     } else {
-      // Check if we should slow down
       const timeSinceChange = Date.now() - lastChangeTimeRef.current;
       if (timeSinceChange > IDLE_TIMEOUT && pollIntervalIndex < POLL_INTERVALS.length - 1) {
         setPollIntervalIndex((prev) => Math.min(prev + 1, POLL_INTERVALS.length - 1));
       }
     }
-  }, [data, computeDataHash, pollIntervalIndex]);
+  }, [data?.messages?.length, pollIntervalIndex]);
 
   const [createReply] = useMutation(CREATE_REPLY, {
     onCompleted: () => {
       setReplyingTo(null);
-      // Reset to fast polling and refetch immediately
       setPollIntervalIndex(0);
       lastChangeTimeRef.current = Date.now();
       refetch();
@@ -83,16 +95,14 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
 
   const [deleteMessage] = useMutation(DELETE_MESSAGE_WITH_REASON, {
     onCompleted: () => {
-      // Reset to fast polling and refetch immediately
       setPollIntervalIndex(0);
       lastChangeTimeRef.current = Date.now();
       refetch();
     },
   });
 
-  const handleReply = async (content: string, parentId: string) => {
+  const recordReply = async (content: string, parentId: string) => {
     if (!session?.userId) return;
-
     await createReply({
       variables: {
         content,
@@ -104,7 +114,6 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
 
   const handleDelete = async (messageId: string, reason?: string) => {
     if (!session?.userId) return;
-
     await deleteMessage({
       variables: {
         id: messageId,
@@ -113,6 +122,30 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
       },
     });
   };
+
+  const returnToPreviousPage = useCallback(() => {
+    navigate('/conversations');
+  }, [navigate]);
+
+  useKeyPressed({
+    bindings: [
+      KeyBindings.escape(() => {
+        if (replyingTo) {
+          setReplyingTo(null);
+        } else {
+          returnToPreviousPage();
+        }
+      }),
+      KeyBindings.goBack(returnToPreviousPage),
+    ],
+  });
+
+  const messages: Message[] = data?.messages || [];
+  const rootMessage = messages.find((m) => !m.parentMessage);
+
+  if (!conversationId) {
+    return <Alert severity="warning">No conversation ID provided</Alert>;
+  }
 
   if (loading && !data) {
     return (
@@ -123,163 +156,85 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
   }
 
   if (error) {
-    return (
-      <Alert severity="error">
-        Failed to load conversation: {error.message}
-      </Alert>
-    );
+    return <Alert severity="error">Failed to load conversation: {error.message}</Alert>;
   }
 
-  const conversation = data?.message;
-
-  if (!conversation) {
-    return (
-      <Alert severity="warning">
-        Conversation not found
-      </Alert>
-    );
+  if (messages.length === 0) {
+    return <Alert severity="warning">Conversation not found</Alert>;
   }
-
-  // If this is a reply (has parentMessage), show breadcrumb
-  const showBreadcrumb = conversation.parentMessage;
 
   return (
     <Box sx={{ height: '100%', overflowY: 'auto' }}>
-      {/* Header with back button */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <IconButton onClick={onBack} sx={{ mr: 1 }} aria-label="go back">
+        <IconButton onClick={returnToPreviousPage} sx={{ mr: 1 }} aria-label="go back">
           <ArrowBackIcon />
         </IconButton>
-        <Typography variant="h4">
-          Conversation
-        </Typography>
+        <Typography variant="h4">Conversation</Typography>
+        <Chip
+          label={`${messages.length} message${messages.length !== 1 ? 's' : ''}`}
+          size="small"
+          sx={{ ml: 2 }}
+        />
       </Box>
 
-      {showBreadcrumb && (
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link
-            component="button"
-            variant="body2"
-            onClick={onBack}
-            sx={{ cursor: 'pointer' }}
-          >
-            Back
-          </Link>
-          <Typography variant="body2" color="text.secondary">
-            Reply from {conversation.author.username}
-          </Typography>
-        </Breadcrumbs>
-      )}
+      <Divider sx={{ mb: 3 }} />
 
-      {/* Original conversation (if this is a reply, show parent context) */}
-      {conversation.parentMessage && (
-        <Box sx={{ mb: 3, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
-          <Typography variant="caption" color="text.secondary" gutterBottom>
-            Original message by {conversation.parentMessage.author.username}:
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {conversation.parentMessage.content}
-          </Typography>
-        </Box>
-      )}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {messages.map((message) => {
+          const isRootMessage = !message.parentMessage;
+          const parentAuthor = message.parentMessage?.author?.username;
 
-      {/* Main message */}
-      <MessageCard
-        content={conversation.content}
-        author={conversation.author}
-        createdAt={conversation.createdAt}
-        isDeleted={conversation.isDeleted}
-        deletedReason={conversation.deletedReason}
-        replyCount={conversation.replies?.length || 0}
-        onReply={() => setReplyingTo(conversation.id)}
-        onOpenInSidebar={() => onOpenInSidebar?.(conversation.id)}
-        onDelete={(reason) => handleDelete(conversation.id, reason)}
-      />
+          return (
+            <Box key={message.id}>
+              {parentAuthor && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, ml: 1, color: 'text.secondary' }}>
+                  <ReplyIcon sx={{ fontSize: 16 }} />
+                  <Typography variant="caption">replying to @{parentAuthor}</Typography>
+                </Box>
+              )}
 
-      {/* Reply composer for main message */}
-      {replyingTo === conversation.id && (
-        <Box sx={{ mb: 3 }}>
-          <MessageComposer
-            onSubmit={(content) => handleReply(content, conversation.id)}
-            label="Your Reply"
-            parentContext={{
-              author: conversation.author.username,
-              content: conversation.content,
-            }}
-            autoFocus
-          />
-        </Box>
-      )}
-
-      <Divider sx={{ my: 3 }} />
-
-      {/* Direct replies */}
-      {conversation.replies && conversation.replies.length > 0 && (
-        <Box>
-          <Typography variant="h6" gutterBottom>
-            Replies ({conversation.replies.length})
-          </Typography>
-
-          {conversation.replies.map((reply: any) => (
-            <Box key={reply.id} sx={{ ml: 2 }}>
               <MessageCard
-                content={reply.content}
-                author={reply.author}
-                createdAt={reply.createdAt}
-                isDeleted={reply.isDeleted}
-                deletedReason={reply.deletedReason}
-                replyCount={reply.replies?.length || 0}
-                onReply={() => setReplyingTo(reply.id)}
-                onOpenInSidebar={() => onOpenInSidebar?.(reply.id)}
-                onDelete={(reason) => handleDelete(reply.id, reason)}
+                content={message.content}
+                author={message.author}
+                createdAt={message.createdAt}
+                isDeleted={message.isDeleted}
+                deletedReason={message.deletedReason}
+                onReply={() => setReplyingTo(message.id)}
+                onOpenInSidebar={onOpenInSidebar ? () => onOpenInSidebar(message.id) : undefined}
+                onDelete={(reason) => handleDelete(message.id, reason)}
+                compact={!isRootMessage}
               />
 
-              {/* Reply composer for this reply */}
-              {replyingTo === reply.id && (
-                <Box sx={{ mb: 2, ml: 2 }}>
+              {replyingTo === message.id && (
+                <Box sx={{ mt: 2, ml: 2 }}>
                   <MessageComposer
-                    onSubmit={(content) => handleReply(content, reply.id)}
+                    onSubmit={(content) => recordReply(content, message.id)}
+                    onCancel={() => setReplyingTo(null)}
                     label="Your Reply"
-                    parentContext={{
-                      author: reply.author.username,
-                      content: reply.content,
-                    }}
+                    parentContext={{ author: message.author.username, content: message.content }}
                     autoFocus
                   />
                 </Box>
               )}
-
-              {/* Nested replies (show count and allow expanding) */}
-              {reply.replies && reply.replies.length > 0 && (
-                <Box sx={{ ml: 4, mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {reply.replies.length} nested {reply.replies.length === 1 ? 'reply' : 'replies'}
-                  </Typography>
-                  {/* Show nested replies */}
-                  {reply.replies.map((nestedReply: any) => (
-                    <MessageCard
-                      key={nestedReply.id}
-                      content={nestedReply.content}
-                      author={nestedReply.author}
-                      createdAt={nestedReply.createdAt}
-                      isDeleted={nestedReply.isDeleted}
-                      deletedReason={nestedReply.deletedReason}
-                      onOpenInSidebar={() => onOpenInSidebar?.(nestedReply.id)}
-                      onDelete={(reason) => handleDelete(nestedReply.id, reason)}
-                      compact
-                    />
-                  ))}
-                </Box>
-              )}
             </Box>
-          ))}
-        </Box>
-      )}
+          );
+        })}
+      </Box>
 
-      {!conversation.isDeleted && conversation.replies?.length === 0 && (
+      {messages.length === 1 && rootMessage && !rootMessage.isDeleted && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
           No replies yet. Be the first to reply!
         </Typography>
+      )}
+
+      {!replyingTo && rootMessage && (
+        <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+          <MessageComposer
+            onSubmit={(content) => recordReply(content, rootMessage.id)}
+            label="Reply to conversation"
+            placeholder="Add your reply..."
+          />
+        </Box>
       )}
     </Box>
   );

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import {
   Box,
@@ -18,11 +19,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useSession } from '../contexts/SessionContext';
 import { GET_USER_CONVERSATIONS, GET_RECENT_ACTIVITY } from '../graphql/queries';
 
-interface HomePageProps {
-  onOpenConversation?: (conversationId: string) => void;
-}
-
-export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
+export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const { session } = useSession();
 
   const { data: conversationsData, loading: conversationsLoading } = useQuery(GET_USER_CONVERSATIONS, {
@@ -36,6 +34,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
     skip: !session?.userId,
     pollInterval: 30000,
   });
+
+  const handleOpenConversation = (conversationId: string) => {
+    navigate(`/conversation/${conversationId}`);
+  };
 
   if (!session) {
     return (
@@ -105,7 +107,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
 
       <Divider sx={{ my: 3 }} />
 
-      {/* Recently Viewed Section - TODO: implement localStorage tracking */}
+      {/* Your Conversations Section */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Your Conversations
@@ -118,7 +120,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
               <ListItem
                 key={conv.id}
                 button
-                onClick={() => onOpenConversation?.(conv.id)}
+                onClick={() => handleOpenConversation(conv.id)}
                 sx={{
                   border: 1,
                   borderColor: 'divider',
@@ -158,7 +160,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
               <ListItem
                 key={activity.id}
                 button
-                onClick={() => onOpenConversation?.(activity.parentMessage.id)}
+                onClick={() => handleOpenConversation(activity.parentMessage.id)}
                 sx={{
                   border: 1,
                   borderColor: 'divider',

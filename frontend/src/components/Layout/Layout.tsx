@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { Box, Toolbar, useTheme, useMediaQuery } from '@mui/material';
 import { TopBar } from './TopBar';
-import { LeftSidebar, Page } from './LeftSidebar';
+import { LeftSidebar } from './LeftSidebar';
 import { RightSidebar } from './RightSidebar';
 import { BottomTabBar } from './BottomTabBar';
 
 interface LayoutProps {
-  currentPage: Page;
-  onNavigate: (page: Page) => void;
   children: React.ReactNode;
   rightSidebarOpen?: boolean;
   onRightSidebarClose?: () => void;
@@ -15,8 +13,6 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({
-  currentPage,
-  onNavigate,
   children,
   rightSidebarOpen = false,
   onRightSidebarClose = () => {},
@@ -35,8 +31,6 @@ export const Layout: React.FC<LayoutProps> = ({
       <TopBar onMenuClick={handleDrawerToggle} />
 
       <LeftSidebar
-        currentPage={currentPage}
-        onNavigate={onNavigate}
         mobileOpen={mobileDrawerOpen}
         onMobileClose={() => setMobileDrawerOpen(false)}
       />
@@ -64,9 +58,7 @@ export const Layout: React.FC<LayoutProps> = ({
       </RightSidebar>
 
       {/* Mobile bottom navigation */}
-      {isMobile && (
-        <BottomTabBar currentPage={currentPage} onNavigate={onNavigate} />
-      )}
+      {isMobile && <BottomTabBar />}
     </Box>
   );
 };
