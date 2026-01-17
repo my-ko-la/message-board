@@ -262,6 +262,7 @@ type Mutation {
   updateMessages(data: [MessageUpdateArgs!]!): [Message]
   deleteMessage(where: MessageWhereUniqueInput!): Message
   deleteMessages(where: [MessageWhereUniqueInput!]!): [Message]
+  deleteMessageWithReason(id: ID!, reason: String, userId: ID!): Message
 }
 
 type Query {

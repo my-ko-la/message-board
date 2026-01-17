@@ -63,15 +63,11 @@ export const MessageCard: React.FC<MessageCardProps> = ({
   const requiresReason = session && session.role !== 'SUPER_ADMIN';
 
   const handleDeleteClick = () => {
-    if (requiresReason) {
-      setDeleteDialogOpen(true);
-    } else {
-      onDelete?.();
-    }
+    setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = () => {
-    onDelete?.(deleteReason);
+    onDelete?.(requiresReason ? deleteReason : undefined);
     setDeleteDialogOpen(false);
     setDeleteReason('');
   };
@@ -133,9 +129,8 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             {displayContent}
           </Typography>
 
-          {!isDeleted && !compact && (
+          {!isDeleted && (
             <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
-              {onReply && (
                 <Button
                   size="small"
                   startIcon={<ReplyIcon />}
@@ -143,7 +138,6 @@ export const MessageCard: React.FC<MessageCardProps> = ({
                 >
                   Reply
                 </Button>
-              )}
               {replyCount > 0 && (
                 <Typography variant="caption" color="text.secondary">
                   {replyCount} {replyCount === 1 ? 'reply' : 'replies'}

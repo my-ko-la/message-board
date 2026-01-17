@@ -5,7 +5,7 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) => {
   return mergeSchemas({
     schemas: [schema],
     typeDefs: `
-      type Mutation {
+      extend type Mutation {
         deleteMessageWithReason(id: ID!, reason: String, userId: ID!): Message
       }
     `,

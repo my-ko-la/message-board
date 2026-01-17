@@ -1,5 +1,6 @@
 import { config } from '@keystone-6/core';
 import { lists } from './schema';
+import { extendGraphqlSchema } from './extra-graphql';
 
 export default config({
   db: {
@@ -7,6 +8,7 @@ export default config({
     url: process.env.DATABASE_URL || 'file:./keystone.db',
   },
   lists,
+  extendGraphqlSchema,
   graphql: {
     playground: true,
     apolloConfig: {
