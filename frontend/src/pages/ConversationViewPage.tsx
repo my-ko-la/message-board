@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import {
   Box,
@@ -8,22 +8,24 @@ import {
   Divider,
   Breadcrumbs,
   Link,
-  Snackbar,
-  Fade,
+  IconButton,
 } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { MessageCard } from '../components/Message/MessageCard';
 import { MessageComposer } from '../components/Message/MessageComposer';
 import { GET_CONVERSATION_WITH_REPLIES } from '../graphql/queries';
 import { CREATE_REPLY, DELETE_MESSAGE_WITH_REASON } from '../graphql/mutations';
 import { useSession } from '../contexts/SessionContext';
-import { useMessageSubscription } from '../hooks/useMessageSubscription';
-import { useScrollLock } from '../hooks/useScrollLock';
 
 interface ConversationViewPageProps {
   conversationId: string;
   onOpenInSidebar?: (messageId: string) => void;
   onBack?: () => void;
 }
+
+// Progressive polling intervals (ms): starts fast, slows down if no changes
+const POLL_INTERVALS = [2000, 5000, 15000];
+const IDLE_TIMEOUT = 30000; // Time without changes before slowing down
 
 export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
   conversationId,
@@ -32,141 +34,59 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
 }) => {
   const { session } = useSession();
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [conversationData, setConversationData] = useState<any>(null);
+  const [pollIntervalIndex, setPollIntervalIndex] = useState(0);
+  const lastDataHashRef = useRef<string>('');
+  const lastChangeTimeRef = useRef<number>(Date.now());
 
-  const { containerRef, lockScroll, unlockScroll } = useScrollLock();
-
-  // Real-time subscription for new/deleted messages
-  const {
-    newMessages,
-    deletedMessages,
-    clearNewMessages,
-    clearDeletedMessages,
-    messageCount,
-    showToast,
-  } = useMessageSubscription({
-    conversationId,
-    currentUserId: session?.userId || undefined,
-  });
-
-  const { data, loading, error } = useQuery(GET_CONVERSATION_WITH_REPLIES, {
+  const { data, loading, error, refetch } = useQuery(GET_CONVERSATION_WITH_REPLIES, {
     variables: { id: conversationId },
+    pollInterval: POLL_INTERVALS[pollIntervalIndex],
   });
 
+  // Compute a simple hash of the data to detect changes
+  const computeDataHash = useCallback((data: any): string => {
+    if (!data?.message) return '';
+    const countReplies = (msg: any): number => {
+      if (!msg.replies) return 0;
+      return msg.replies.length + msg.replies.reduce((sum: number, r: any) => sum + countReplies(r), 0);
+    };
+    return `${data.message.id}-${data.message.updatedAt}-${countReplies(data.message)}`;
+  }, []);
+
+  // Adjust polling interval based on activity
   useEffect(() => {
-    if (data?.message) {
-      setConversationData(data.message);
+    const currentHash = computeDataHash(data);
+
+    if (currentHash && currentHash !== lastDataHashRef.current) {
+      // Data changed - reset to fast polling
+      lastDataHashRef.current = currentHash;
+      lastChangeTimeRef.current = Date.now();
+      setPollIntervalIndex(0);
+    } else {
+      // Check if we should slow down
+      const timeSinceChange = Date.now() - lastChangeTimeRef.current;
+      if (timeSinceChange > IDLE_TIMEOUT && pollIntervalIndex < POLL_INTERVALS.length - 1) {
+        setPollIntervalIndex((prev) => Math.min(prev + 1, POLL_INTERVALS.length - 1));
+      }
     }
-  }, [data]);
-
-  useEffect(() => {
-    if (newMessages.length > 0 && conversationData) {
-      lockScroll();
-
-      setConversationData((prev: any) => {
-        if (!prev) return prev;
-
-        // Create a copy of the conversation
-        const updated = { ...prev };
-
-        // Add new messages to the appropriate place in the tree
-        newMessages.forEach((newMsg) => {
-          // Initialize replies array on incoming message to prevent crashes
-          const normalizedMsg = { ...newMsg, replies: newMsg.replies || [] };
-
-          // Check if message already exists (avoid duplicates)
-          const existsInReplies = updated.replies?.some((r: any) => r.id === normalizedMsg.id);
-          if (existsInReplies) return;
-
-          // If it's a direct reply to the conversation
-          if (normalizedMsg.parentMessage?.id === conversationId) {
-            updated.replies = [...(updated.replies || []), normalizedMsg];
-          } else {
-            // It's a nested reply - find parent and add to it (immutably)
-            const addToParent = (messages: any[]): any[] | null => {
-              return messages.map(msg => {
-                if (msg.id === normalizedMsg.parentMessage?.id) {
-                  // Found parent - add reply
-                  return {
-                    ...msg,
-                    replies: [...(msg.replies || []), normalizedMsg]
-                  };
-                }
-                if (msg.replies && msg.replies.length > 0) {
-                  // Recursively search in nested replies
-                  const updatedReplies = addToParent(msg.replies);
-                  if (updatedReplies) {
-                    return { ...msg, replies: updatedReplies };
-                  }
-                }
-                return msg;
-              });
-            };
-
-            if (updated.replies) {
-              const updatedReplies = addToParent(updated.replies);
-              if (updatedReplies) {
-                updated.replies = updatedReplies;
-              }
-            }
-          }
-        });
-
-        return updated;
-      });
-
-      clearNewMessages();
-      setTimeout(() => unlockScroll(), 100);
-    }
-  }, [newMessages, conversationData, conversationId, clearNewMessages, lockScroll, unlockScroll]);
-
-  useEffect(() => {
-    if (deletedMessages.length > 0 && conversationData) {
-      setConversationData((prev: any) => {
-        if (!prev) return prev;
-
-        const updated = { ...prev };
-
-        // Update deleted messages in the tree
-        const updateDeleted = (messages: any[]): any[] => {
-          return messages.map((msg) => {
-            const deletedMsg = deletedMessages.find((d) => d.id === msg.id);
-            if (deletedMsg) {
-              return { ...msg, isDeleted: true, deletedReason: deletedMsg.deletedReason };
-            }
-            if (msg.replies) {
-              return { ...msg, replies: updateDeleted(msg.replies) };
-            }
-            return msg;
-          });
-        };
-
-        if (updated.replies) {
-          updated.replies = updateDeleted(updated.replies);
-        }
-
-        // Check if the conversation itself was deleted
-        const deletedConv = deletedMessages.find((d) => d.id === conversationId);
-        if (deletedConv) {
-          updated.isDeleted = true;
-          updated.deletedReason = deletedConv.deletedReason;
-        }
-
-        return updated;
-      });
-
-      clearDeletedMessages();
-    }
-  }, [deletedMessages, conversationData, conversationId, clearDeletedMessages]);
+  }, [data, computeDataHash, pollIntervalIndex]);
 
   const [createReply] = useMutation(CREATE_REPLY, {
     onCompleted: () => {
       setReplyingTo(null);
+      // Reset to fast polling and refetch immediately
+      setPollIntervalIndex(0);
+      lastChangeTimeRef.current = Date.now();
+      refetch();
     },
   });
 
   const [deleteMessage] = useMutation(DELETE_MESSAGE_WITH_REASON, {
     onCompleted: () => {
+      // Reset to fast polling and refetch immediately
+      setPollIntervalIndex(0);
+      lastChangeTimeRef.current = Date.now();
+      refetch();
     },
   });
 
@@ -194,7 +114,7 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
     });
   };
 
-  if (loading && !conversationData) {
+  if (loading && !data) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
         <CircularProgress />
@@ -210,8 +130,7 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
     );
   }
 
-  // Use conversationData from state (which includes real-time updates)
-  const conversation = conversationData;
+  const conversation = data?.message;
 
   if (!conversation) {
     return (
@@ -225,14 +144,16 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
   const showBreadcrumb = conversation.parentMessage;
 
   return (
-    <Box ref={containerRef} sx={{ height: '100%', overflowY: 'auto' }}>
-      {/* Toast notification for bulk new messages */}
-      <Snackbar
-        open={showToast}
-        message={`${messageCount} new ${messageCount === 1 ? 'message' : 'messages'}`}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        TransitionComponent={Fade}
-      />
+    <Box sx={{ height: '100%', overflowY: 'auto' }}>
+      {/* Header with back button */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+        <IconButton onClick={onBack} sx={{ mr: 1 }} aria-label="go back">
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h4">
+          Conversation
+        </Typography>
+      </Box>
 
       {showBreadcrumb && (
         <Breadcrumbs sx={{ mb: 2 }}>
@@ -249,10 +170,6 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
           </Typography>
         </Breadcrumbs>
       )}
-
-      <Typography variant="h4" gutterBottom>
-        Conversation
-      </Typography>
 
       {/* Original conversation (if this is a reply, show parent context) */}
       {conversation.parentMessage && (

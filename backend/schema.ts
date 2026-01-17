@@ -1,6 +1,5 @@
 import { list } from '@keystone-6/core';
 import { text, relationship, timestamp, select, checkbox } from '@keystone-6/core/fields';
-import { pubSub } from './websocket';
 
 export const lists = {
   User: list({
@@ -48,44 +47,6 @@ export const lists = {
         create: () => true,
         update: () => true,
         delete: () => true,
-      },
-    },
-    hooks: {
-      afterOperation: async ({ operation, item, context }) => {
-        // Publish subscription events after message operations
-        if (operation === 'create' && item) {
-          const fullMessage = await context.query.Message.findOne({
-            where: { id: item.id.toString() },
-            query: 'id content isDeleted deletedReason author { id username role } parentMessage { id } createdAt updatedAt',
-          });
-
-          if (fullMessage) {
-            console.log('📤 Publishing MESSAGE_CREATED event:', {
-              id: fullMessage.id,
-              content: fullMessage.content.substring(0, 50),
-              author: fullMessage.author.username,
-              parentMessage: fullMessage.parentMessage?.id || 'none (top-level)',
-              createdAt: fullMessage.createdAt,
-              updatedAt: fullMessage.updatedAt,
-            });
-
-            // Convert DateTime fields to ISO strings for subscription
-            const messageForSubscription = {
-              id: fullMessage.id,
-              content: fullMessage.content,
-              isDeleted: fullMessage.isDeleted,
-              deletedReason: fullMessage.deletedReason,
-              author: fullMessage.author,
-              parentMessage: fullMessage.parentMessage,
-              createdAt: new Date(fullMessage.createdAt).toISOString(),
-              updatedAt: new Date(fullMessage.updatedAt).toISOString(),
-            };
-
-            pubSub.publish('MESSAGE_CREATED', {
-              messageCreated: messageForSubscription,
-            });
-          }
-        }
       },
     },
     fields: {

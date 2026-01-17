@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useQuery } from '@apollo/client';
 import {
   Box,
@@ -17,7 +17,6 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { useSession } from '../contexts/SessionContext';
 import { GET_USER_CONVERSATIONS, GET_RECENT_ACTIVITY } from '../graphql/queries';
-import { useMessageSubscription } from '../hooks/useMessageSubscription';
 
 interface HomePageProps {
   onOpenConversation?: (conversationId: string) => void;
@@ -26,32 +25,17 @@ interface HomePageProps {
 export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
   const { session } = useSession();
 
-  const { data: conversationsData, loading: conversationsLoading, refetch: refetchConversations } = useQuery(GET_USER_CONVERSATIONS, {
+  const { data: conversationsData, loading: conversationsLoading } = useQuery(GET_USER_CONVERSATIONS, {
     variables: { userId: session?.userId },
     skip: !session?.userId,
+    pollInterval: 30000,
   });
 
-  const { data: activityData, loading: activityLoading, refetch: refetchActivity } = useQuery(GET_RECENT_ACTIVITY, {
+  const { data: activityData, loading: activityLoading } = useQuery(GET_RECENT_ACTIVITY, {
     variables: { userId: session?.userId },
     skip: !session?.userId,
+    pollInterval: 30000,
   });
-
-  // Subscribe to all messages globally (no conversation filter)
-  const { newMessages, clearNewMessages } = useMessageSubscription({
-    conversationId: null, // Listen to all messages
-    currentUserId: session?.userId || undefined,
-    batchThreshold: 999, 
-  });
-
-  // Refetch when new messages arrive
-  useEffect(() => {
-    if (newMessages.length > 0) {
-      // Refetch both queries to update counts and activity
-      refetchConversations();
-      refetchActivity();
-      clearNewMessages();
-    }
-  }, [newMessages, refetchConversations, refetchActivity, clearNewMessages]);
 
   if (!session) {
     return (
@@ -63,10 +47,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenConversation }) => {
 
   const userConversations = conversationsData?.messages || [];
   const recentActivity = activityData?.messages || [];
-  const totalMessages = userConversations.reduce(
-    (sum: number, conv: any) => sum + 1 + (conv.replies?.length || 0),
-    0
-  );
 
   return (
     <Box>

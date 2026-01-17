@@ -1,6 +1,5 @@
 import type { GraphQLSchema } from "graphql";
 import { mergeSchemas } from "@graphql-tools/schema";
-import { pubSub } from "./websocket";
 
 export const extendGraphqlSchema = (schema: GraphQLSchema) => {
   return mergeSchemas({
@@ -9,27 +8,9 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) => {
       type Mutation {
         deleteMessageWithReason(id: ID!, reason: String, userId: ID!): Message
       }
-
-      type SubscriptionMessage {
-        id: ID!
-        content: String!
-        isDeleted: Boolean
-        deletedReason: String
-        author: User!
-        parentMessage: Message
-        createdAt: String!
-        updatedAt: String!
-      }
-
-      type Subscription {
-        messageCreated(conversationId: ID): SubscriptionMessage
-        messageDeleted(conversationId: ID): SubscriptionMessage
-      }
     `,
 
     resolvers: {
-
-
       Mutation: {
         deleteMessageWithReason: async (
           root,
@@ -78,159 +59,7 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) => {
               "id content isDeleted deletedReason author { id username role } parentMessage { id } createdAt updatedAt",
           });
 
-          // Convert DateTime to strings for subscription
-          const messageForSubscription = {
-            id: updatedMessage.id,
-            content: updatedMessage.content,
-            isDeleted: updatedMessage.isDeleted,
-            deletedReason: updatedMessage.deletedReason,
-            author: updatedMessage.author,
-            parentMessage: updatedMessage.parentMessage,
-            createdAt: new Date(updatedMessage.createdAt).toISOString(),
-            updatedAt: new Date(updatedMessage.updatedAt).toISOString(),
-          };
-
-          pubSub.publish("MESSAGE_DELETED", {
-            messageDeleted: messageForSubscription,
-          });
-
           return updatedMessage;
-        },
-      },
-
-      Subscription: {
-        messageCreated: {
-          resolve: async (payload, args, context) => {
-            const message = payload.messageCreated;
-            const { conversationId } = args;
-
-            console.log('✅ Subscription resolver - payload:', {
-              messageId: message?.id,
-              filterConversationId: conversationId || 'none (all messages)',
-              messageParentId: message?.parentMessage?.id || 'none (top-level)',
-            });
-
-            // Ensure dates are strings
-            const messageWithStringDates = {
-              ...message,
-              createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date(message.createdAt).toISOString(),
-              updatedAt: typeof message.updatedAt === 'string' ? message.updatedAt : new Date(message.updatedAt).toISOString(),
-            };
-
-            // If no filter, return all messages
-            if (!conversationId) {
-              console.log('  ➡️ No filter - returning message');
-              return messageWithStringDates;
-            }
-
-            // If message IS the conversation starter
-            if (message.id === conversationId) {
-              console.log('  ➡️ Message is the conversation - returning message');
-              return messageWithStringDates;
-            }
-
-            // If message is a direct reply to the conversation
-            if (message.parentMessage?.id === conversationId) {
-              console.log('  ➡️ Direct reply - returning message');
-              return messageWithStringDates;
-            }
-
-            // For nested replies, traverse up the parent chain
-            console.log('  🔍 Checking parent chain...');
-            let currentParentId = message.parentMessage?.id;
-            let depth = 0;
-            const maxDepth = 10; // Prevent infinite loops
-
-            while (currentParentId && depth < maxDepth) {
-              const parent = await context.query.Message.findOne({
-                where: { id: currentParentId },
-                query: 'id parentMessage { id }',
-              });
-
-              if (!parent) {
-                console.log('  ⚠️ Parent not found, stopping traversal');
-                break;
-              }
-
-              console.log(`  📝 Checking parent: ${parent.id}`);
-
-              if (parent.id === conversationId) {
-                console.log('  ✅ Found conversation in parent chain - returning message');
-                // Ensure dates are strings before returning
-                return {
-                  ...message,
-                  createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date(message.createdAt).toISOString(),
-                  updatedAt: typeof message.updatedAt === 'string' ? message.updatedAt : new Date(message.updatedAt).toISOString(),
-                };
-              }
-
-              currentParentId = parent.parentMessage?.id;
-              depth++;
-            }
-
-            console.log('  ❌ Message not in this conversation - returning null');
-            return null;
-          },
-          subscribe: () => {
-            console.log("🔔 Client subscribed to messageCreated");
-            return pubSub.asyncIterator(["MESSAGE_CREATED"]);
-          }
-        },
-
-        messageDeleted: {
-          resolve: async (payload, args, context) => {
-            const message = payload.messageDeleted;
-            const { conversationId } = args;
-
-            console.log('✅ Subscription resolver (deleted) - payload:', {
-              messageId: message?.id,
-              filterConversationId: conversationId || 'none (all messages)',
-            });
-
-            // Ensure dates are strings
-            const messageWithStringDates = {
-              ...message,
-              createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date(message.createdAt).toISOString(),
-              updatedAt: typeof message.updatedAt === 'string' ? message.updatedAt : new Date(message.updatedAt).toISOString(),
-            };
-
-            // Same filtering logic as messageCreated
-            if (!conversationId) {
-              return messageWithStringDates;
-            }
-
-            if (message.id === conversationId) {
-              return messageWithStringDates;
-            }
-
-            if (message.parentMessage?.id === conversationId) {
-              return messageWithStringDates;
-            }
-
-            // Traverse parent chain
-            let currentParentId = message.parentMessage?.id;
-            let depth = 0;
-            const maxDepth = 10;
-
-            while (currentParentId && depth < maxDepth) {
-              const parent = await context.query.Message.findOne({
-                where: { id: currentParentId },
-                query: 'id parentMessage { id }',
-              });
-
-              if (!parent) break;
-              if (parent.id === conversationId) return messageWithStringDates;
-
-              currentParentId = parent.parentMessage?.id;
-              depth++;
-            }
-
-            return null;
-          },
-          subscribe: () => {
-            console.log("🔔 Client subscribed to messageDeleted");
-            return pubSub.asyncIterator(["MESSAGE_DELETED"]);
-          }
         },
       },
     },

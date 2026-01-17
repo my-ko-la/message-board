@@ -16,11 +16,7 @@
     "@keystone-6/auth": "^7.0.3",
     "@keystone-6/core": "^5.7.0",
     "@keystone-6/fields-document": "^8.0.2",
-    "@types/ws": "^8.18.1",
-    "graphql": "^16.8.1",
-    "graphql-subscriptions": "^2.0.0",
-    "graphql-ws": "^6.0.6",
-    "ws": "^8.19.0"
+    "graphql": "^16.8.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
