@@ -8,7 +8,7 @@ A real-time message board with nested threading, built with KeystoneJS, React, a
 - **KeystoneJS 6** - GraphQL CMS/API framework
 - **SQLite** - Embedded database
 - **Prisma** - ORM
-- **GraphQL Subscriptions** - Real-time updates
+- **GraphQL Polling** - Near Real-time updates
 
 ### Frontend
 - **Vite** - Build tool
