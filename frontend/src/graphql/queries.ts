@@ -12,6 +12,10 @@ export const GET_CONVERSATIONS = gql`
       content
       isDeleted
       deletedReason
+      deletedBy {
+        id
+        username
+      }
       createdAt
       updatedAt
       author {
@@ -38,6 +42,10 @@ export const GET_CONVERSATION_MESSAGES = gql`
       content
       isDeleted
       deletedReason
+      deletedBy {
+        id
+        username
+      }
       createdAt
       updatedAt
       author {

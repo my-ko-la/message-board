@@ -11,6 +11,7 @@ export interface Message {
   content: string;
   isDeleted?: boolean;
   deletedReason?: string | null;
+  deletedBy?: Author | null;
   createdAt: string;
   updatedAt?: string;
   author: Author;

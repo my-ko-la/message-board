@@ -155,6 +155,7 @@ type Message {
   repliesCount(where: MessageWhereInput! = {}): Int
   isDeleted: Boolean
   deletedReason: String
+  deletedBy: User
   createdAt: DateTime
   updatedAt: DateTime
 }
@@ -175,6 +176,7 @@ input MessageWhereInput {
   replies: MessageManyRelationFilter
   isDeleted: BooleanFilter
   deletedReason: StringFilter
+  deletedBy: UserWhereInput
   createdAt: DateTimeNullableFilter
   updatedAt: DateTimeNullableFilter
 }
@@ -201,6 +203,7 @@ input MessageUpdateInput {
   replies: MessageRelateToManyForUpdateInput
   isDeleted: Boolean
   deletedReason: String
+  deletedBy: UserRelateToOneForUpdateInput
   createdAt: DateTime
   updatedAt: DateTime
 }
@@ -230,6 +233,7 @@ input MessageCreateInput {
   replies: MessageRelateToManyForCreateInput
   isDeleted: Boolean
   deletedReason: String
+  deletedBy: UserRelateToOneForCreateInput
   createdAt: DateTime
   updatedAt: DateTime
 }

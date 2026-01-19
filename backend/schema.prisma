@@ -12,12 +12,13 @@ generator client {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  username  String    @default("")
-  sessionId String    @unique @default("")
-  role      String    @default("USER")
-  messages  Message[] @relation("Message_author")
-  createdAt DateTime? @default(now())
+  id                     String    @id @default(cuid())
+  username               String    @default("")
+  sessionId              String    @unique @default("")
+  role                   String    @default("USER")
+  messages               Message[] @relation("Message_author")
+  createdAt              DateTime? @default(now())
+  from_Message_deletedBy Message[] @relation("Message_deletedBy")
 }
 
 model Message {
@@ -32,6 +33,8 @@ model Message {
   replies                   Message[] @relation("Message_parentMessage")
   isDeleted                 Boolean   @default(false)
   deletedReason             String    @default("")
+  deletedBy                 User?     @relation("Message_deletedBy", fields: [deletedById], references: [id])
+  deletedById               String?   @map("deletedBy")
   createdAt                 DateTime? @default(now())
   updatedAt                 DateTime? @updatedAt
   from_Message_conversation Message[] @relation("Message_conversation")
@@ -39,4 +42,5 @@ model Message {
   @@index([authorId])
   @@index([conversationId])
   @@index([parentMessageId])
+  @@index([deletedById])
 }

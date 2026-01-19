@@ -133,6 +133,13 @@ export const lists = {
           displayMode: 'textarea',
         },
       }),
+      deletedBy: relationship({
+        ref: 'User',
+        ui: {
+          displayMode: 'cards',
+          cardFields: ['username', 'role'],
+        },
+      }),
       createdAt: timestamp({
         defaultValue: { kind: 'now' },
       }),

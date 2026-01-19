@@ -58,6 +58,11 @@ export const DELETE_MESSAGE_WITH_REASON = gql`
       content
       isDeleted
       deletedReason
+      deletedBy {
+        id
+        username
+        role
+      }
       updatedAt
     }
   }

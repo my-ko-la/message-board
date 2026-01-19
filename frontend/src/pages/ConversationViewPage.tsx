@@ -29,6 +29,10 @@ interface Message {
   content: string;
   isDeleted: boolean;
   deletedReason?: string;
+  deletedBy?: {
+    id: string;
+    username: string;
+  } | null;
   createdAt: string;
   updatedAt?: string;
   author: {
@@ -199,6 +203,7 @@ export const ConversationViewPage: React.FC<ConversationViewPageProps> = ({
                 createdAt={message.createdAt}
                 isDeleted={message.isDeleted}
                 deletedReason={message.deletedReason}
+                deletedBy={message.deletedBy}
                 onReply={() => setReplyingTo(message.id)}
                 onOpenInSidebar={onOpenInSidebar ? () => onOpenInSidebar(message.id) : undefined}
                 onDelete={(reason) => handleDelete(message.id, reason)}

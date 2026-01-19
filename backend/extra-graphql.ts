@@ -54,9 +54,10 @@ export const extendGraphqlSchema = (schema: GraphQLSchema) => {
             data: {
               isDeleted: true,
               deletedReason,
+              deletedBy: { connect: { id: userId } },
             },
             query:
-              "id content isDeleted deletedReason author { id username role } parentMessage { id } createdAt updatedAt",
+              "id content isDeleted deletedReason deletedBy { id username role } author { id username role } parentMessage { id } createdAt updatedAt",
           });
 
           return updatedMessage;

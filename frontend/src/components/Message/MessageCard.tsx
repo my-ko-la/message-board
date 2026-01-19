@@ -31,6 +31,7 @@ interface MessageCardProps {
   createdAt: string;
   isDeleted?: boolean;
   deletedReason?: string | null;
+  deletedBy?: Author | null;
   replyCount?: number;
   onReply?: () => void;
   onOpenInSidebar?: () => void;
@@ -44,6 +45,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
   createdAt,
   isDeleted = false,
   deletedReason,
+  deletedBy,
   replyCount = 0,
   onReply,
   onOpenInSidebar,
@@ -72,9 +74,13 @@ export const MessageCard: React.FC<MessageCardProps> = ({
     setDeleteReason('');
   };
 
-  const displayContent = isDeleted
-    ? `[Deleted${deletedReason ? `: ${deletedReason}` : ' by Super Admin'}]`
-    : content;
+  const getDeletedText = () => {
+    const byText = deletedBy ? ` by ${deletedBy.username}` : '';
+    const reasonText = deletedReason ? `: ${deletedReason}` : '';
+    return `[Deleted${byText}${reasonText}]`;
+  };
+
+  const displayContent = isDeleted ? getDeletedText() : content;
 
   return (
     <>
