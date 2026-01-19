@@ -7,6 +7,7 @@ import { AllConversationsPage } from './pages/AllConversationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ConversationViewPage } from './pages/ConversationViewPage';
 import { useSession } from './contexts/SessionContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   const { session, loading: sessionLoading, error: sessionError, retry } = useSession();
@@ -88,13 +89,13 @@ function App() {
       }
     >
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/conversations" element={<AllConversationsPage />} />
+        <Route path="/" element={<ErrorBoundary level="page"><HomePage /></ErrorBoundary>} />
+        <Route path="/conversations" element={<ErrorBoundary level="page"><AllConversationsPage /></ErrorBoundary>} />
         <Route
           path="/conversation/:id"
-          element={<ConversationViewPage onOpenInSidebar={doOpenMessageInSidebar} />}
+          element={<ErrorBoundary level="page"><ConversationViewPage onOpenInSidebar={doOpenMessageInSidebar} /></ErrorBoundary>}
         />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings" element={<ErrorBoundary level="page"><SettingsPage /></ErrorBoundary>} />
       </Routes>
     </Layout>
   );
