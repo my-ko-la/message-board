@@ -18,6 +18,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { useSession } from '../contexts/SessionContext';
 import { GET_USER_CONVERSATIONS, GET_RECENT_ACTIVITY } from '../graphql/queries';
+import { Message } from '../types/graphql';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -116,7 +117,7 @@ export const HomePage: React.FC = () => {
           <CircularProgress size={24} />
         ) : userConversations.length > 0 ? (
           <List>
-            {userConversations.slice(0, 5).map((conv: any) => (
+            {userConversations.slice(0, 5).map((conv: Message) => (
               <ListItem
                 key={conv.id}
                 button
@@ -156,30 +157,32 @@ export const HomePage: React.FC = () => {
           <CircularProgress size={24} />
         ) : recentActivity.length > 0 ? (
           <List>
-            {recentActivity.map((activity: any) => (
-              <ListItem
-                key={activity.id}
-                button
-                onClick={() => handleOpenConversation(activity.parentMessage.id)}
-                sx={{
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  mb: 1,
-                }}
-              >
-                <ListItemText
-                  primary={`${activity.author.username} replied: "${activity.content.substring(
-                    0,
-                    60
-                  )}${activity.content.length > 60 ? '...' : ''}"`}
-                  secondary={`On: "${activity.parentMessage.content.substring(0, 50)}..." • ${formatDistanceToNow(
-                    new Date(activity.createdAt),
-                    { addSuffix: true }
-                  )}`}
-                />
-              </ListItem>
-            ))}
+            {recentActivity
+              .filter((activity: Message) => activity.parentMessage)
+              .map((activity: Message) => (
+                <ListItem
+                  key={activity.id}
+                  button
+                  onClick={() => handleOpenConversation(activity.parentMessage!.id)}
+                  sx={{
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    mb: 1,
+                  }}
+                >
+                  <ListItemText
+                    primary={`${activity.author.username} replied: "${activity.content.substring(
+                      0,
+                      60
+                    )}${activity.content.length > 60 ? '...' : ''}"`}
+                    secondary={`On: "${activity.parentMessage!.content.substring(0, 50)}..." • ${formatDistanceToNow(
+                      new Date(activity.createdAt),
+                      { addSuffix: true }
+                    )}`}
+                  />
+                </ListItem>
+              ))}
           </List>
         ) : (
           <Typography color="text.secondary">

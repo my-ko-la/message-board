@@ -26,6 +26,7 @@ import { GET_CONVERSATIONS } from '../graphql/queries';
 import { CREATE_CONVERSATION } from '../graphql/mutations';
 import { MessageComposer } from '../components/Message/MessageComposer';
 import { useKeyPressed, KeyBindings } from '../hooks/useKeyPressed';
+import { Message } from '../types/graphql';
 
 type FilterTab = 'all' | 'yours' | 'others';
 type SortOption = 'recent' | 'mostReplies' | 'created';
@@ -55,7 +56,7 @@ export const AllConversationsPage: React.FC = () => {
   });
 
   const whereClause = useMemo(() => {
-    const base: any = { parentMessage: null }; // Only top-level conversations
+    const base: Record<string, unknown> = { parentMessage: null }; // Only top-level conversations
 
     if (filterTab === 'yours' && session?.userId) {
       base.author = { id: { equals: session.userId } };
@@ -206,7 +207,7 @@ export const AllConversationsPage: React.FC = () => {
       ) : (
         <>
           <List>
-            {conversations.map((conv: any) => (
+            {conversations.map((conv: Message) => (
               <ListItem
                 key={conv.id}
                 button
