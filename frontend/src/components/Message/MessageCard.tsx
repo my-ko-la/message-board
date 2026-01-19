@@ -60,14 +60,14 @@ export const MessageCard: React.FC<MessageCardProps> = ({
     session.role === 'SUPER_ADMIN'
   );
 
-  const requiresReason = session && session.role !== 'SUPER_ADMIN';
+  const isSuperAdmin = session?.role === 'SUPER_ADMIN';
 
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = () => {
-    onDelete?.(requiresReason ? deleteReason : undefined);
+    onDelete?.(deleteReason.trim() || undefined);
     setDeleteDialogOpen(false);
     setDeleteReason('');
   };
@@ -153,30 +153,26 @@ export const MessageCard: React.FC<MessageCardProps> = ({
         <DialogTitle>Delete Message</DialogTitle>
         <DialogContent>
           <Typography variant="body2" gutterBottom>
-            {requiresReason
-              ? 'Please provide a reason for deleting this message:'
-              : 'Are you sure you want to delete this message?'}
+            Please provide a reason for deleting this message{isSuperAdmin ? ' (optional)' : ''}:
           </Typography>
-          {requiresReason && (
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Deletion Reason"
-              fullWidth
-              multiline
-              rows={3}
-              value={deleteReason}
-              onChange={(e) => setDeleteReason(e.target.value)}
-              required
-            />
-          )}
+          <TextField
+            autoFocus
+            margin="dense"
+            label={`Deletion Reason${isSuperAdmin ? ' (optional)' : ''}`}
+            fullWidth
+            multiline
+            rows={3}
+            value={deleteReason}
+            onChange={(e) => setDeleteReason(e.target.value)}
+            required={!isSuperAdmin}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
           <Button
             onClick={handleDeleteConfirm}
             color="error"
-            disabled={requiresReason && !deleteReason.trim()}
+            disabled={!isSuperAdmin && !deleteReason.trim()}
           >
             Delete
           </Button>

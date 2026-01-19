@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   TextField,
@@ -31,12 +31,6 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 }) => {
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-
-  // FIXME: useKeyPressed doesn't flush the buffer, this is a hack
-  useEffect(() => {
-    if (content === "N") setContent('');
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

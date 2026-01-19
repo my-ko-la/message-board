@@ -130,6 +130,7 @@ export const KeyBindings = {
     shift: true,
     handler,
     ignoreInputs: true,
+    preventDefault: true,
   }),
 
   search: (handler: KeyHandler): KeyBinding => ({
