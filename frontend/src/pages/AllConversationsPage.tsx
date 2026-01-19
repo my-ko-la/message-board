@@ -65,7 +65,7 @@ export const AllConversationsPage: React.FC = () => {
     }
 
     if (searchQuery) {
-      base.content = { contains: searchQuery, mode: 'insensitive' };
+      base.content = { contains: searchQuery };
     }
 
     return base;

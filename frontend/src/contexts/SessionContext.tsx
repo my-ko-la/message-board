@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useMutation, useQuery, gql } from "@apollo/client";
 import {
   SessionData,
-  getSession,
   saveSession,
   initializeSession,
 } from "../utils/session";
@@ -75,24 +74,14 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
       setLoading(true);
       setError(null);
 
-      // Check localStorage first
-      const existingSession = getSession();
-
-      if (existingSession && existingSession.userId) {
-        // We have a complete session
-        setSession(existingSession);
-        setLoading(false);
-        return;
-      }
-
-      // Initialize new or partial session
+      // Initialize session data from localStorage or generate new
       const { sessionId, username, role } = initializeSession();
 
-      // Try to find existing user by sessionId
+      // Always verify user exists in database by sessionId
       const { data: findData } = await findUser({ sessionId });
 
       if (findData?.users && findData.users.length > 0) {
-        // User exists
+        // User exists in database
         const user = findData.users[0];
         const newSession: SessionData = {
           sessionId: user.sessionId,
@@ -103,7 +92,7 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
         saveSession(newSession);
         setSession(newSession);
       } else {
-        // Create new user
+        // User doesn't exist - create new user
         const { data: createData } = await createUser({
           variables: { sessionId, username, role },
         });
