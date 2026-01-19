@@ -2,139 +2,138 @@ import { getContext } from '@keystone-6/core/context';
 import config from './keystone';
 import * as PrismaModule from '.prisma/client';
 
+// Random data generators
+const conversationTopics = [
+  'What do you think about TypeScript vs JavaScript?',
+  'Best practices for React state management',
+  'How do you handle authentication in your apps?',
+  'Favorite VS Code extensions?',
+  'Docker vs Kubernetes for small projects',
+  'GraphQL vs REST - which do you prefer?',
+  'Tips for improving code review processes',
+  'How to stay motivated while coding',
+  'Best resources for learning system design',
+  'Thoughts on the new React Server Components?',
+  'How do you organize your project structure?',
+  'Favorite testing frameworks and why',
+  'Tips for debugging production issues',
+  'How to handle technical debt',
+  'Best practices for API versioning',
+  'Microservices vs monolith architecture',
+  'How do you document your code?',
+  'Favorite programming books',
+  'How to mentor junior developers',
+  'Tips for remote team collaboration',
+  'What IDE/editor do you use?',
+  'How do you handle database migrations?',
+  'Thoughts on AI-assisted coding?',
+  'Best practices for error handling',
+  'How to design scalable systems',
+  'Tips for writing clean code',
+  'Favorite open source projects',
+  'How do you handle secrets management?',
+  'Best CI/CD practices',
+  'How to optimize frontend performance',
+  'Thoughts on serverless architecture',
+  'How do you approach refactoring?',
+  'Best practices for logging',
+  'How to handle rate limiting',
+  'Tips for API security',
+];
+
+const replyTemplates = [
+  'Great point! I totally agree with this.',
+  'Interesting perspective. Have you considered...?',
+  'I had a similar experience with this.',
+  'Thanks for sharing! This is really helpful.',
+  'I disagree actually. In my experience...',
+  'Could you elaborate more on this?',
+  'This matches what I have seen in production.',
+  'Good question! Here is my take on it.',
+  'I have been thinking about this too.',
+  'Nice insight! Adding to this...',
+  'This is exactly what I needed to hear.',
+  'Solid advice. I will try this approach.',
+  'I have a different opinion on this matter.',
+  'Thanks! This solved my problem.',
+  'Can you share some examples?',
+];
+
+const userNames = [
+  'Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank',
+  'Grace', 'Henry', 'Ivy', 'Jack', 'Kate', 'Leo'
+];
+
+function randomElement<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 async function seed() {
   console.log('🌱 Seeding database...');
 
   const context = getContext(config, PrismaModule);
 
   // Create users with different roles
-  const regularUser = await context.query.User.createOne({
-    data: {
-      username: 'Alice',
-      sessionId: 'session-alice-123',
-      role: 'USER',
-    },
-    query: 'id username role',
-  });
+  const users: Array<{ id: string; username: string; role: string }> = [];
 
-  const adminUser = await context.query.User.createOne({
-    data: {
-      username: 'Bob (Admin)',
-      sessionId: 'session-bob-456',
-      role: 'ADMIN',
-    },
-    query: 'id username role',
-  });
+  for (let i = 0; i < userNames.length; i++) {
+    const role = i === 0 ? 'SUPER_ADMIN' : i <= 2 ? 'ADMIN' : 'USER';
+    const user = await context.query.User.createOne({
+      data: {
+        username: userNames[i],
+        sessionId: `session-${userNames[i].toLowerCase()}-${Date.now()}-${i}`,
+        role,
+      },
+      query: 'id username role',
+    });
+    users.push(user);
+  }
 
-  const superAdminUser = await context.query.User.createOne({
-    data: {
-      username: 'Charlie (Super Admin)',
-      sessionId: 'session-charlie-789',
-      role: 'SUPER_ADMIN',
-    },
-    query: 'id username role',
-  });
+  console.log(`✅ Created ${users.length} users`);
 
-  console.log(`✅ Created users:
-  - ${regularUser.username} (${regularUser.role})
-  - ${adminUser.username} (${adminUser.role})
-  - ${superAdminUser.username} (${superAdminUser.role})`);
+  // Create 35 top-level conversations (more than PAGE_SIZE of 20)
+  const conversations: Array<{ id: string; content: string }> = [];
 
-  // Create top-level conversations
-  const conversation1 = await context.query.Message.createOne({
-    data: {
-      content: 'Welcome to Lumion Message Board! This is the first conversation.',
-      author: { connect: { id: regularUser.id } },
-    },
-    query: 'id content',
-  });
+  for (let i = 0; i < 35; i++) {
+    const conversation = await context.query.Message.createOne({
+      data: {
+        content: conversationTopics[i % conversationTopics.length],
+        author: { connect: { id: randomElement(users).id } },
+      },
+      query: 'id content',
+    });
+    conversations.push(conversation);
 
-  const conversation2 = await context.query.Message.createOne({
-    data: {
-      content: 'What features would you like to see in this message board?',
-      author: { connect: { id: adminUser.id } },
-    },
-    query: 'id content',
-  });
+    // Add a small delay to ensure different createdAt timestamps
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
 
-  const conversation3 = await context.query.Message.createOne({
-    data: {
-      content: 'Testing nested threading - how deep should replies go?',
-      author: { connect: { id: superAdminUser.id } },
-    },
-    query: 'id content',
-  });
+  console.log(`✅ Created ${conversations.length} top-level conversations`);
 
-  console.log(`✅ Created ${3} top-level conversations`);
+  // Create replies for each conversation
+  let totalReplies = 0;
 
-  // Create replies to conversation 1
-  const reply1 = await context.query.Message.createOne({
-    data: {
-      content: 'Great to be here! Looking forward to using this platform.',
-      author: { connect: { id: adminUser.id } },
-      parentMessage: { connect: { id: conversation1.id } },
-    },
-    query: 'id content',
-  });
+  for (const conversation of conversations) {
+    const replyCount = randomInt(0, 5);
 
-  const reply2 = await context.query.Message.createOne({
-    data: {
-      content: 'I agree! The real-time updates are awesome.',
-      author: { connect: { id: superAdminUser.id } },
-      parentMessage: { connect: { id: conversation1.id } },
-    },
-    query: 'id content',
-  });
+    for (let i = 0; i < replyCount; i++) {
+      await context.query.Message.createOne({
+        data: {
+          content: randomElement(replyTemplates),
+          author: { connect: { id: randomElement(users).id } },
+          parentMessage: { connect: { id: conversation.id } },
+        },
+        query: 'id content',
+      });
+      totalReplies++;
+    }
+  }
 
-  // Create nested reply (reply to reply)
-  await context.query.Message.createOne({
-    data: {
-      content: 'Indeed! GraphQL subscriptions make it seamless.',
-      author: { connect: { id: regularUser.id } },
-      parentMessage: { connect: { id: reply2.id } },
-    },
-    query: 'id content',
-  });
-
-  // Create replies to conversation 2
-  await context.query.Message.createOne({
-    data: {
-      content: 'I would love to see markdown support for formatting messages!',
-      author: { connect: { id: regularUser.id } },
-      parentMessage: { connect: { id: conversation2.id } },
-    },
-    query: 'id content',
-  });
-
-  await context.query.Message.createOne({
-    data: {
-      content: 'How about file attachments and image uploads?',
-      author: { connect: { id: superAdminUser.id } },
-      parentMessage: { connect: { id: conversation2.id } },
-    },
-    query: 'id content',
-  });
-
-  // Create replies to conversation 3
-  const reply3 = await context.query.Message.createOne({
-    data: {
-      content: 'I think 2-3 levels deep is sufficient for most use cases.',
-      author: { connect: { id: adminUser.id } },
-      parentMessage: { connect: { id: conversation3.id } },
-    },
-    query: 'id content',
-  });
-
-  await context.query.Message.createOne({
-    data: {
-      content: 'Agreed. Too deep and it becomes hard to follow the conversation.',
-      author: { connect: { id: regularUser.id } },
-      parentMessage: { connect: { id: reply3.id } },
-    },
-    query: 'id content',
-  });
-
-  console.log(`✅ Created 7 replies (including nested replies)`);
+  console.log(`✅ Created ${totalReplies} replies`);
 
   console.log('\n🎉 Database seeded successfully!');
   console.log('\nYou can now:');

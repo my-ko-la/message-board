@@ -30,6 +30,8 @@ import { useKeyPressed, KeyBindings } from '../hooks/useKeyPressed';
 type FilterTab = 'all' | 'yours' | 'others';
 type SortOption = 'recent' | 'mostReplies' | 'created';
 
+const PAGE_SIZE = 20;
+
 export const AllConversationsPage: React.FC = () => {
   const navigate = useNavigate();
   const { session } = useSession();
@@ -80,10 +82,22 @@ export const AllConversationsPage: React.FC = () => {
     }
   }, [sortBy]);
 
-  const { data, loading, error, refetch } = useQuery(GET_CONVERSATIONS, {
-    variables: { where: whereClause, orderBy },
+  const { data, loading, error, refetch, fetchMore } = useQuery(GET_CONVERSATIONS, {
+    variables: { where: whereClause, orderBy, take: PAGE_SIZE, skip: 0 },
     pollInterval: 10000, // Poll every 10 seconds
   });
+
+  const conversations = data?.messages || [];
+  const totalCount = data?.messagesCount || 0;
+  const hasMore = conversations.length < totalCount;
+
+  const handleLoadMore = () => {
+    fetchMore({
+      variables: {
+        skip: conversations.length,
+      },
+    });
+  };
 
   const [createConversation] = useMutation(CREATE_CONVERSATION, {
     onCompleted: (data) => {
@@ -110,8 +124,6 @@ export const AllConversationsPage: React.FC = () => {
   const handleOpenConversation = (conversationId: string) => {
     navigate(`/conversation/${conversationId}`);
   };
-
-  const conversations = data?.messages || [];
 
   return (
     <Box>
@@ -192,37 +204,46 @@ export const AllConversationsPage: React.FC = () => {
           No conversations found. {filterTab === 'yours' ? "Start one by clicking 'New Conversation'!" : ''}
         </Alert>
       ) : (
-        <List>
-          {conversations.map((conv: any) => (
-            <ListItem
-              key={conv.id}
-              button
-              onClick={() => handleOpenConversation(conv.id)}
-              sx={{
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 1,
-                mb: 1,
-                opacity: conv.isDeleted ? 0.6 : 1,
-              }}
-            >
-              <ListItemText
-                primary={
-                  conv.isDeleted
-                    ? `[Deleted${conv.deletedReason ? `: ${conv.deletedReason}` : ''}]`
-                    : conv.content.substring(0, 100) + (conv.content.length > 100 ? '...' : '')
-                }
-                secondary={`${conv.author.username} • ${conv.replies?.length || 0} replies • ${formatDistanceToNow(
-                  new Date(conv.createdAt),
-                  { addSuffix: true }
-                )}`}
-                primaryTypographyProps={{
-                  sx: { fontStyle: conv.isDeleted ? 'italic' : 'normal' },
+        <>
+          <List>
+            {conversations.map((conv: any) => (
+              <ListItem
+                key={conv.id}
+                button
+                onClick={() => handleOpenConversation(conv.id)}
+                sx={{
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  mb: 1,
+                  opacity: conv.isDeleted ? 0.6 : 1,
                 }}
-              />
-            </ListItem>
-          ))}
-        </List>
+              >
+                <ListItemText
+                  primary={
+                    conv.isDeleted
+                      ? `[Deleted${conv.deletedReason ? `: ${conv.deletedReason}` : ''}]`
+                      : conv.content.substring(0, 100) + (conv.content.length > 100 ? '...' : '')
+                  }
+                  secondary={`${conv.author.username} • ${conv.replies?.length || 0} replies • ${formatDistanceToNow(
+                    new Date(conv.createdAt),
+                    { addSuffix: true }
+                  )}`}
+                  primaryTypographyProps={{
+                    sx: { fontStyle: conv.isDeleted ? 'italic' : 'normal' },
+                  }}
+                />
+              </ListItem>
+            ))}
+          </List>
+          {hasMore && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button variant="outlined" onClick={handleLoadMore}>
+                Load More ({conversations.length} of {totalCount})
+              </Button>
+            </Box>
+          )}
+        </>
       )}
     </Box>
   );

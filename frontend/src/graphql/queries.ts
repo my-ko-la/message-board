@@ -1,8 +1,13 @@
 import { gql } from '@apollo/client';
 
 export const GET_CONVERSATIONS = gql`
-  query GetConversations($where: MessageWhereInput, $orderBy: [MessageOrderByInput!]!) {
-    messages(where: $where, orderBy: $orderBy) {
+  query GetConversations(
+    $where: MessageWhereInput
+    $orderBy: [MessageOrderByInput!]!
+    $take: Int
+    $skip: Int
+  ) {
+    messages(where: $where, orderBy: $orderBy, take: $take, skip: $skip) {
       id
       content
       isDeleted
@@ -18,6 +23,7 @@ export const GET_CONVERSATIONS = gql`
         id
       }
     }
+    messagesCount(where: $where)
   }
 `;
 
