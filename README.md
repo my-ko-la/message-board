@@ -20,7 +20,7 @@ A real-time message board with nested threading, built with KeystoneJS, React, a
 ## Project Structure
 
 ```
-lumion-message-board/
+message-board/
 ├── backend/          # KeystoneJS GraphQL server
 ├── frontend/         # React + Vite application
 ├── package.json      # Monorepo workspace configuration
@@ -37,7 +37,7 @@ lumion-message-board/
 
 1. Clone the repository:
 ```bash
-cd lumion-message-board
+cd message-board
 ```
 
 2. Install all dependencies (installs both backend and frontend):
@@ -82,6 +82,11 @@ npm run seed -w backend
 3. In another terminal, start the frontend:
 ```bash
 npm run dev -w frontend
+```
+
+### Start Frontend and Backend
+```bash
+npm run dev
 ```
 
 ### Start Backend Only
